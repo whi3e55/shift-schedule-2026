@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 移动端适配核心：自适应屏幕，禁止缩放 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2026年1月排班日历</title>
+    <style>
+        /* 全局样式重置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        /* 日历容器：响应式宽度，适配手机+电脑 */
+        .calendar-container {
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 20px;
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        /* 日历标题：响应式字体 */
+        .calendar-title {
+            text-align: center;
+            font-size: clamp(18px, 5vw, 24px);
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        /* 星期头部 */
+        .week-header {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 3px;
+            margin-bottom: 3px;
+        }
+
+        .week-header > div {
+            text-align: center;
+            font-weight: bold;
+            padding: 8px 0;
+            font-size: clamp(12px, 3vw, 14px);
+            color: #666;
+        }
+
+        /* 日期格子容器 */
+        .date-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 3px;
+        }
+
+        /* 日期格子（正方形） */
+        .date-cell {
+            aspect-ratio: 1/1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            font-size: clamp(12px, 3vw, 16px);
+        }
+
+        /* 班次背景色（日历+今日窗口共用） */
+        .date-cell.rest, .today-window.rest { background-color: #e6f7f0; } /* 休息-浅青绿 */
+        .date-cell.morning, .today-window.morning { background-color: #fff9e6; } /* 早班-浅黄 */
+        .date-cell.evening, .today-window.evening { background-color: #e6eaf0; } /* 晚班-浅蓝灰 */
+
+        /* 1号前的占位空格子 */
+        .empty-cell {
+            aspect-ratio: 1/1;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            background-color: #fafafa;
+        }
+
+        /* 今日窗口：响应式正方形 */
+        .today-window {
+            width: clamp(150px, 50vw, 200px);
+            aspect-ratio: 1/1;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #eee;
+        }
+
+        .today-date {
+            font-size: clamp(24px, 8vw, 32px);
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .today-shift {
+            font-size: clamp(16px, 5vw, 20px);
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <!-- 日历容器 -->
+    <div class="calendar-container">
+        <div class="calendar-title">2026年1月 排班日历</div>
+        <div class="week-header">
+            <div>周一</div>
+            <div>周二</div>
+            <div>周三</div>
+            <div>周四</div>
+            <div>周五</div>
+            <div>周六</div>
+            <div>周日</div>
+        </div>
+        <div class="date-grid" id="dateGrid"></div>
+    </div>
+
+    <!-- 今日窗口 -->
+    <div class="today-window" id="todayWindow">
+        <div class="today-date" id="todayDate"></div>
+        <div class="today-shift" id="todayShift"></div>
+    </div>
+
+    <script>
+        // 2026年1月完整排班表（1-31号顺序）
+        const shiftSchedule = [
+            '休','晚','晚','晚','休','晚','晚','晚',
+            '休','晚','晚','晚','休','休','早','早',
+            '早','休','早','早','休','早','早','休',
+            '晚','晚','晚','休','休','早','早'
+        ];
+
+        // 2026年1月1日是周四，前3个格子（周一/周二/周三）为空
+        const emptyCellsCount = 3;
+        const totalDays = 31;
+
+        // 渲染1月日历格子
+        function renderCalendar() {
+            const dateGrid = document.getElementById('dateGrid');
+            // 添加占位空格子
+            for (let i = 0; i < emptyCellsCount; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'empty-cell';
+                dateGrid.appendChild(emptyCell);
+            }
+            // 渲染1-31号日期+排班
+            for (let date = 1; date <= totalDays; date++) {
+                const cell = document.createElement('div');
+                const shift = shiftSchedule[date - 1];
+                // 设置班次对应的样式类
+                cell.className = `date-cell ${
+                    shift === '休' ? 'rest' : shift === '早' ? 'morning' : 'evening'
+                }`;
+                // 日期数字
+                const dateNum = document.createElement('div');
+                dateNum.textContent = date;
+                // 排班文字
+                const shiftText = document.createElement('div');
+                shiftText.textContent = shift;
+                shiftText.style.fontSize = 'clamp(10px, 2.5vw, 14px)';
+                shiftText.style.marginTop = '3px';
+                
+                cell.appendChild(dateNum);
+                cell.appendChild(shiftText);
+                dateGrid.appendChild(cell);
+            }
+        }
+
+        // 渲染今日窗口（根据设备系统时间自动匹配）
+        function renderTodayWindow() {
+            // 获取设备真实系统时间（核心：无任何强制日期代码）
+            const today = new Date();
+            // 提取当前日期（几号）和月份（0=1月，1=2月...）
+            const todayDate = today.getDate();
+            const todayMonth = today.getMonth();
+
+            // 仅处理1月的情况，非1月提示无排班
+            if (todayMonth !== 0 || todayDate < 1 || todayDate > 31) {
+                document.getElementById('todayDate').textContent = '非1月';
+                document.getElementById('todayShift').textContent = '无排班';
+                return;
+            }
+
+            // 匹配当日排班
+            const todayShift = shiftSchedule[todayDate - 1];
+            // 设置今日窗口显示内容
+            document.getElementById('todayDate').textContent = todayDate + '号';
+            document.getElementById('todayShift').textContent = 
+                todayShift === '休' ? '休息日' : 
+                todayShift === '早' ? '早班' : '晚班';
+            // 设置今日窗口背景色（和日历同步）
+            const todayWindowEl = document.getElementById('todayWindow');
+            todayWindowEl.className = '';
+            todayWindowEl.classList.add('today-window', 
+                todayShift === '休' ? 'rest' : todayShift === '早' ? 'morning' : 'evening'
+            );
+        }
+
+        // 页面加载后执行渲染
+        window.onload = function() {
+            renderCalendar();
+            renderTodayWindow();
+        };
+    </script>
+</body>
+</html>

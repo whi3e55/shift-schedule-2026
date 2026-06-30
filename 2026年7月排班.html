@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>2026年7月排班日历</title>
+    <style>
+        /* ===== 全局重置 ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", -apple-system, sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px 10px 30px;
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+
+        /* ===== 日历容器 ===== */
+        .calendar-container {
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 20px;
+            background: #ffffff;
+            padding: 16px 14px 18px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .calendar-title {
+            text-align: center;
+            font-size: clamp(20px, 5.5vw, 26px);
+            font-weight: 700;
+            margin-bottom: 14px;
+            color: #1a2332;
+            letter-spacing: 1px;
+        }
+        .calendar-title small {
+            font-weight: 400;
+            font-size: 0.7em;
+            color: #7a8ba3;
+            margin-left: 6px;
+        }
+
+        /* ===== 星期头部 ===== */
+        .week-header {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+        .week-header>div {
+            text-align: center;
+            font-weight: 600;
+            font-size: clamp(12px, 2.8vw, 15px);
+            color: #5a6c7e;
+            padding: 6px 0;
+            letter-spacing: 0.3px;
+        }
+        .week-header>div:first-child {
+            color: #e57373;
+        }
+        .week-header>div:last-child {
+            color: #e57373;
+        }
+
+        /* ===== 日期网格 ===== */
+        .date-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            width: 100%;
+        }
+
+        /* ---- 日期格子（正方形） ---- */
+        .date-cell {
+            position: relative;
+            width: 100%;
+            padding-top: 100%;
+            border-radius: 10px;
+            border: 2px solid transparent;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            cursor: default;
+        }
+        .date-cell:active {
+            transform: scale(0.94);
+        }
+
+        .date-cell .content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 4px 2px;
+            border-radius: 8px;
+        }
+
+        /* ---- 日期数字 ---- */
+        .date-number {
+            font-size: clamp(16px, 4.2vw, 22px);
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        /* ---- 班次符号 ---- */
+        .shift-icon {
+            font-size: clamp(18px, 4.8vw, 26px);
+            line-height: 1.3;
+            margin-top: -2px;
+        }
+        /* ---- 班次文字 ---- */
+        .shift-text {
+            font-size: clamp(9px, 2.2vw, 13px);
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            margin-top: 1px;
+            opacity: 0.9;
+        }
+
+        /* ---- 占位空格子 ---- */
+        .empty-cell {
+            position: relative;
+            width: 100%;
+            padding-top: 100%;
+            border-radius: 10px;
+            background: #f7f9fb;
+            border: 2px dashed #dce2ea;
+        }
+
+        /* ============================================================ */
+        /* ===== 班次配色方案（核心改进） ===== */
+        /* ============================================================ */
+
+        /* ---- 早班：暖阳金 ---- */
+        .date-cell.morning {
+            background: #FFD54F;
+            border-color: #F9A825;
+        }
+        .date-cell.morning .date-number {
+            color: #4E342E;
+        }
+        .date-cell.morning .shift-text {
+            color: #4E342E;
+        }
+
+        /* ---- 晚班：月夜靛蓝 ---- */
+        .date-cell.evening {
+            background: #5C6BC0;
+            border-color: #283593;
+        }
+        .date-cell.evening .date-number {
+            color: #FFFFFF;
+        }
+        .date-cell.evening .shift-text {
+            color: #FFFFFF;
+        }
+
+        /* ---- 休息：森系翠绿 ---- */
+        .date-cell.rest {
+            background: #66BB6A;
+            border-color: #2E7D32;
+        }
+        .date-cell.rest .date-number {
+            color: #1B5E20;
+        }
+        .date-cell.rest .shift-text {
+            color: #1B5E20;
+        }
+
+        /* ---- 今日高亮（可选） ---- */
+        .date-cell.today-highlight {
+            box-shadow: 0 0 0 3px #ffffff, 0 0 0 5px #5C6BC0;
+            z-index: 2;
+        }
+
+        /* ============================================================ */
+        /* ===== 班次窗口（今日/明日） ===== */
+        /* ============================================================ */
+
+        .shift-windows {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+            width: 100%;
+            max-width: 450px;
+            margin-top: 6px;
+        }
+
+        .shift-window {
+            position: relative;
+            width: clamp(140px, 42vw, 190px);
+            padding-top: clamp(140px, 42vw, 190px);
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
+            border: 2px solid transparent;
+            transition: transform 0.2s ease;
+        }
+        .shift-window:active {
+            transform: scale(0.95);
+        }
+
+        .shift-window .content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 12px 8px;
+            border-radius: 14px;
+        }
+
+        .window-title {
+            font-size: clamp(13px, 3.6vw, 17px);
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.85);
+            letter-spacing: 1px;
+            margin-bottom: 2px;
+        }
+        .shift-date {
+            font-size: clamp(22px, 7vw, 32px);
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 2px;
+        }
+        .window-icon {
+            font-size: clamp(28px, 8vw, 40px);
+            line-height: 1.2;
+            margin-bottom: 2px;
+        }
+        .shift-type {
+            font-size: clamp(15px, 4.2vw, 20px);
+            font-weight: 600;
+            color: #fff;
+            letter-spacing: 0.5px;
+        }
+
+        /* ---- 窗口配色（与日历一致） ---- */
+        .shift-window.morning {
+            background: #FFD54F;
+            border-color: #F9A825;
+        }
+        .shift-window.morning .window-title {
+            color: #4E342E;
+        }
+        .shift-window.morning .shift-date {
+            color: #4E342E;
+        }
+        .shift-window.morning .shift-type {
+            color: #4E342E;
+        }
+
+        .shift-window.evening {
+            background: #5C6BC0;
+            border-color: #283593;
+        }
+        .shift-window.evening .window-title {
+            color: rgba(255, 255, 255, 0.85);
+        }
+        .shift-window.evening .shift-date {
+            color: #fff;
+        }
+        .shift-window.evening .shift-type {
+            color: #fff;
+        }
+
+        .shift-window.rest {
+            background: #66BB6A;
+            border-color: #2E7D32;
+        }
+        .shift-window.rest .window-title {
+            color: #1B5E20;
+        }
+        .shift-window.rest .shift-date {
+            color: #1B5E20;
+        }
+        .shift-window.rest .shift-type {
+            color: #1B5E20;
+        }
+
+        /* ===== 空状态（非7月） ===== */
+        .shift-window.empty {
+            background: #e8ecf1;
+            border-color: #b0bec5;
+        }
+        .shift-window.empty .window-title {
+            color: #78909c;
+        }
+        .shift-window.empty .shift-date {
+            color: #546e7a;
+        }
+        .shift-window.empty .shift-type {
+            color: #78909c;
+        }
+
+        /* ============================================================ */
+        /* ===== 响应式微调 ===== */
+        /* ============================================================ */
+
+        @media (max-width: 400px) {
+            .calendar-container {
+                padding: 12px 8px 14px;
+            }
+            .date-cell .content {
+                padding: 2px 1px;
+            }
+            .shift-windows {
+                gap: 12px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .date-number {
+                font-size: 14px !important;
+            }
+            .shift-icon {
+                font-size: 16px !important;
+            }
+            .shift-text {
+                font-size: 8px !important;
+            }
+            .week-header>div {
+                font-size: 10px !important;
+            }
+        }
+
+        /* 适配刘海屏 */
+        @supports (padding: max(0px)) {
+            body {
+                padding-left: max(12px, env(safe-area-inset-left));
+                padding-right: max(12px, env(safe-area-inset-right));
+                padding-top: max(12px, env(safe-area-inset-top));
+                padding-bottom: max(30px, env(safe-area-inset-bottom));
+            }
+        }
+
+        /* 暗色模式兼容（保持可读） */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #1a1e26;
+            }
+            .calendar-container {
+                background: #242b36;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            }
+            .calendar-title {
+                color: #e8edf5;
+            }
+            .calendar-title small {
+                color: #8a9bb0;
+            }
+            .week-header>div {
+                color: #9aabbd;
+            }
+            .week-header>div:first-child,
+            .week-header>div:last-child {
+                color: #ef9a9a;
+            }
+            .empty-cell {
+                background: #2c3440;
+                border-color: #3d4655;
+            }
+            .shift-window.empty {
+                background: #2c3440;
+                border-color: #3d4655;
+            }
+            .shift-window.empty .window-title {
+                color: #8a9bb0;
+            }
+            .shift-window.empty .shift-date {
+                color: #b0bec5;
+            }
+            .shift-window.empty .shift-type {
+                color: #8a9bb0;
+            }
+            /* 暗色下早班文字微调 */
+            .date-cell.morning .date-number,
+            .date-cell.morning .shift-text {
+                color: #3e2c1a;
+            }
+            .date-cell.rest .date-number,
+            .date-cell.rest .shift-text {
+                color: #1a4a1a;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== 日历 ===== -->
+    <div class="calendar-container">
+        <div class="calendar-title">
+            2026年7月 <small>排班日历</small>
+        </div>
+        <div class="week-header">
+            <div>一</div><div>二</div><div>三</div>
+            <div>四</div><div>五</div><div>六</div><div>日</div>
+        </div>
+        <div class="date-grid" id="dateGrid"></div>
+    </div>
+
+    <!-- ===== 今日 + 明日 班次窗口 ===== -->
+    <div class="shift-windows">
+        <div class="shift-window" id="todayWindow">
+            <div class="content">
+                <div class="window-title">📅 今日</div>
+                <div class="shift-date" id="todayDate"></div>
+                <div class="window-icon" id="todayIcon"></div>
+                <div class="shift-type" id="todayShift"></div>
+            </div>
+        </div>
+        <div class="shift-window" id="tomorrowWindow">
+            <div class="content">
+                <div class="window-title">📅 明日</div>
+                <div class="shift-date" id="tomorrowDate"></div>
+                <div class="window-icon" id="tomorrowIcon"></div>
+                <div class="shift-type" id="tomorrowShift"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ================================================================
+        //  数据配置（已更新为 2026年7月）
+        // ================================================================
+
+        const TARGET_YEAR = 2026;
+        const TARGET_MONTH = 6; // JS 中 6 = 七月
+        const MONTH_NAME = "7月";
+
+        // 7月1日 → 7月31日 排班序列（共31天）
+        // 序列: 早早休晚晚晚休早早早早休晚晚晚晚休休早早早休晚晚晚晚晚休早早休
+        const rawShiftArray = [
+            '早', '早', '休', '晚', '晚', '晚', '休',
+            '早', '早', '早', '早', '休', '晚', '晚',
+            '晚', '晚', '休', '休', '早', '早', '早',
+            '休', '晚', '晚', '晚', '晚', '晚', '休',
+            '早', '早', '休'
+        ];
+
+        // ================================================================
+        //  工具函数
+        // ================================================================
+
+        function getDaysInMonth(year, month) {
+            return new Date(year, month + 1, 0).getDate();
+        }
+
+        function getEmptyCellsCount(year, month) {
+            const firstDay = new Date(year, month, 1);
+            let weekDay = firstDay.getDay(); // 0=周日 ... 6=周六
+            return (weekDay === 0) ? 6 : weekDay - 1;
+        }
+
+        // ---- 班次 → 显示信息 ----
+        function getShiftDisplay(shift) {
+            const map = {
+                '早': { text: '早班', icon: '☀️', cls: 'morning' },
+                '晚': { text: '晚班', icon: '🌙', cls: 'evening' },
+                '休': { text: '休息日', icon: '💤', cls: 'rest' }
+            };
+            return map[shift] || { text: shift, icon: '📌', cls: '' };
+        }
+
+        // ---- 根据日期获取班次信息 ----
+        function getShiftInfoByDate(dateObj) {
+            const year = dateObj.getFullYear();
+            const month = dateObj.getMonth();
+            const day = dateObj.getDate();
+
+            if (year !== TARGET_YEAR || month !== TARGET_MONTH || day < 1 || day > totalDays) {
+                return {
+                    shiftText: '无排班',
+                    displayDate: `${day}号`,
+                    icon: '—',
+                    styleClass: 'empty',
+                    isInMonth: false
+                };
+            }
+
+            const shift = shiftSchedule[day - 1];
+            const info = getShiftDisplay(shift);
+            return {
+                shiftText: info.text,
+                displayDate: `${day}号`,
+                icon: info.icon,
+                styleClass: info.cls,
+                isInMonth: true
+            };
+        }
+
+        // ================================================================
+        //  初始化数据
+        // ================================================================
+
+        const totalDays = getDaysInMonth(TARGET_YEAR, TARGET_MONTH);
+        const shiftSchedule = rawShiftArray.slice(0, totalDays);
+        const emptyCellsCount = getEmptyCellsCount(TARGET_YEAR, TARGET_MONTH);
+
+        // ================================================================
+        //  渲染日历
+        // ================================================================
+
+        function renderCalendar() {
+            const grid = document.getElementById('dateGrid');
+            grid.innerHTML = '';
+
+            // 占位空格
+            for (let i = 0; i < emptyCellsCount; i++) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-cell';
+                grid.appendChild(empty);
+            }
+
+            // 日期格子
+            const today = new Date();
+            const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+            for (let date = 1; date <= totalDays; date++) {
+                const shift = shiftSchedule[date - 1];
+                const info = getShiftDisplay(shift);
+
+                const cell = document.createElement('div');
+                cell.className = `date-cell ${info.cls}`;
+
+                // 今日高亮
+                if (date === todayDate.getDate() &&
+                    todayDate.getMonth() === TARGET_MONTH &&
+                    todayDate.getFullYear() === TARGET_YEAR) {
+                    cell.classList.add('today-highlight');
+                }
+
+                const content = document.createElement('div');
+                content.className = 'content';
+
+                // 日期数字
+                const numEl = document.createElement('div');
+                numEl.className = 'date-number';
+                numEl.textContent = date;
+
+                // 符号
+                const iconEl = document.createElement('div');
+                iconEl.className = 'shift-icon';
+                iconEl.textContent = info.icon;
+
+                // 班次文字（单字）
+                const textEl = document.createElement('div');
+                textEl.className = 'shift-text';
+                textEl.textContent = shift;
+
+                content.appendChild(numEl);
+                content.appendChild(iconEl);
+                content.appendChild(textEl);
+                cell.appendChild(content);
+                grid.appendChild(cell);
+            }
+        }
+
+        // ================================================================
+        //  渲染 今日/明日 窗口
+        // ================================================================
+
+        function renderShiftWindow(dateObj, windowId, dateId, iconId, shiftId) {
+            const info = getShiftInfoByDate(dateObj);
+
+            document.getElementById(dateId).textContent = info.displayDate;
+            document.getElementById(iconId).textContent = info.icon;
+            document.getElementById(shiftId).textContent = info.shiftText;
+
+            const windowEl = document.getElementById(windowId);
+            windowEl.className = 'shift-window';
+            if (info.styleClass) {
+                windowEl.classList.add(info.styleClass);
+            }
+        }
+
+        function renderTodayAndTomorrow() {
+            const today = new Date();
+            const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const tomorrowDate = new Date(todayDate);
+            tomorrowDate.setDate(todayDate.getDate() + 1);
+
+            renderShiftWindow(todayDate, 'todayWindow', 'todayDate', 'todayIcon', 'todayShift');
+            renderShiftWindow(tomorrowDate, 'tomorrowWindow', 'tomorrowDate', 'tomorrowIcon', 'tomorrowShift');
+        }
+
+        // ================================================================
+        //  初始化 & 事件
+        // ================================================================
+
+        function init() {
+            renderCalendar();
+            renderTodayAndTomorrow();
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+
+        // 窗口尺寸变化重绘（防抖）
+        let resizeTimer;
+        window.addEventListener('resize', function() {
+            if (resizeTimer) clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                renderCalendar();
+                renderTodayAndTomorrow();
+            }, 120);
+        });
+
+        // 页面可见性变化（跨天刷新）
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                renderTodayAndTomorrow();
+                renderCalendar();
+            }
+        });
+
+        // 定时刷新（每分钟检查一次，确保跨天自动更新）
+        setInterval(function() {
+            renderTodayAndTomorrow();
+        }, 60000);
+    </script>
+
+</body>
+</html>
